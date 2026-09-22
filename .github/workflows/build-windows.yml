@@ -1,0 +1,26 @@
+name: Build Windows app
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Publish self-contained x64 app
+        run: dotnet publish .\AppPicker.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o .\publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AppPicker-win-x64
+          path: publish/AppPicker.exe
+      - name: Attach executable to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish/AppPicker.exe
