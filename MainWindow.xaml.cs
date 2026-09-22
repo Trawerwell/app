@@ -104,7 +104,7 @@ public partial class MainWindow : Window
         _applyingCapture = true;
         OwnCaptureCheck.IsChecked = false;
         _applyingCapture = false;
-        MessageBox.Show("Windows не смогла исключить окно AppPicker из захвата. Нужна Windows 10 версии 2004 или новее.", "Приватность AppPicker", MessageBoxButton.OK, MessageBoxImage.Information);
+        System.Windows.MessageBox.Show("Windows не смогла исключить окно AppPicker из захвата. Нужна Windows 10 версии 2004 или новее.", "Приватность AppPicker", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 
     private void LoadSettings()
@@ -227,3 +227,4 @@ internal static class IconLoader
         catch { return null; }
     }
 }
+
