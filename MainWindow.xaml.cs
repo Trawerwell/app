@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<AppEntry> _selected = [];
     private readonly Dictionary<string, AppEntry> _known = new(StringComparer.OrdinalIgnoreCase);
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(3) };
+    private readonly MaskOverlayManager _masks = new();
     private bool _applyingCapture;
 
     public MainWindow()
@@ -31,7 +32,7 @@ public partial class MainWindow : Window
         Loaded += (_, _) => { RefreshApps(); ApplyCapture(); };
         _timer.Tick += (_, _) => RefreshApps();
         _timer.Start();
-        Closing += (_, _) => { _timer.Stop(); SaveSettings(); };
+        Closing += (_, _) => { _timer.Stop(); _masks.Dispose(); SaveSettings(); };
     }
 
     private void Refresh_Click(object sender, RoutedEventArgs e) => RefreshApps();
@@ -51,6 +52,7 @@ public partial class MainWindow : Window
             entry.IconSource ??= IconLoader.Load(app.Path);
         }
         foreach (var entry in _known.Values) if (!running.Contains(entry.Id)) entry.IsRunning = false;
+        RefreshMasks(found);
         FilterApps();
         UpdateStatus();
     }
@@ -75,6 +77,7 @@ public partial class MainWindow : Window
         if (app.IsSelected) _selected.Remove(app);
         else _selected.Add(app);
         app.IsSelected = !app.IsSelected;
+        RefreshApps();
         SaveSettings();
         UpdateStatus();
     }
@@ -84,11 +87,31 @@ public partial class MainWindow : Window
         if (sender is not FrameworkElement { DataContext: AppEntry app }) return;
         _selected.Remove(app);
         app.IsSelected = false;
+        RefreshApps();
         SaveSettings();
         UpdateStatus();
     }
 
     private void UpdateStatus() => StatusText.Text = $"Запущено приложений: {_known.Values.Count(x => x.IsRunning)} · Выбрано: {_selected.Count}";
+
+    private void Mask_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        RefreshApps();
+    }
+
+    private void RefreshMasks(List<FoundApp> found)
+    {
+        var targets = MaskCheck.IsChecked == true
+            ? found.Where(x => _known.TryGetValue(x.Id, out var entry) && entry.IsSelected).SelectMany(x => x.Windows)
+            : Enumerable.Empty<IntPtr>();
+        if (!_masks.SetTargets(targets))
+        {
+            MaskCheck.IsChecked = false;
+            _masks.SetTargets([]);
+            System.Windows.MessageBox.Show("Windows не смогла создать маску захвата. Режим выключен.", "Маски окон", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
 
     private void Capture_Changed(object sender, RoutedEventArgs e)
     {
@@ -167,7 +190,7 @@ public sealed class AppEntry(string id, string name) : INotifyPropertyChanged
 
 internal record SavedApp(string Id, string Name);
 internal record Settings(List<SavedApp>? Selected, bool ExcludeOwnWindow);
-internal record FoundApp(string Id, string Name, string Title, string? Path);
+internal record FoundApp(string Id, string Name, string Title, string? Path, List<IntPtr> Windows);
 
 internal static class AppEnumerator
 {
@@ -203,7 +226,8 @@ internal static class AppEnumerator
                 var name = path is null ? process.ProcessName : Path.GetFileNameWithoutExtension(path);
                 if (name.Equals("explorer", StringComparison.OrdinalIgnoreCase) && title.ToString().Equals("Program Manager", StringComparison.OrdinalIgnoreCase)) return true;
                 var id = path ?? $"process:{process.ProcessName}";
-                if (!results.ContainsKey(id)) results[id] = new FoundApp(id, name, title.ToString(), path);
+                if (!results.TryGetValue(id, out var app)) results[id] = new FoundApp(id, name, title.ToString(), path, [hwnd]);
+                else app.Windows.Add(hwnd);
             }
             catch { }
             return true;
