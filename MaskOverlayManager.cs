@@ -35,7 +35,7 @@ internal sealed class MaskOverlayManager : IDisposable
                 Height = 1,
                 WindowStyle = WindowStyle.None,
                 AllowsTransparency = true,
-                Background = Brushes.Black,
+                Background = System.Windows.Media.Brushes.Black,
                 Opacity = 0.01,
                 Topmost = true,
                 ShowInTaskbar = false,
@@ -95,3 +95,4 @@ internal sealed class MaskOverlayManager : IDisposable
     [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")] private static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
     [DllImport("user32.dll", SetLastError = true)] private static extern bool SetWindowPos(IntPtr hwnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 }
+
